@@ -3,7 +3,7 @@ window.GQ = window.GQ || {};
 
 GQ.app = (function () {
   const $ = function (id) { return document.getElementById(id); };
-  const VERSION = '1.2.0';
+  const VERSION = '1.3.0';
   let ajustes = {};
   let vistaActual = 'form';
   let timerAviso = null;

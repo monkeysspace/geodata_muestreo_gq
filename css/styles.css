@@ -277,3 +277,43 @@ input[readonly] { background: var(--panel-alt); color: var(--texto-suave); }
 
 h2.titulo { font-size: 18px; margin: 4px 0 13px; }
 .acciones { display: flex; flex-direction: column; gap: 9px; }
+
+/* ---------- Selector Por día / Todas ---------- */
+.segmentos {
+  display: flex; gap: 4px; margin-bottom: 12px;
+  background: var(--panel-alt); border: 1px solid var(--borde);
+  border-radius: 10px; padding: 4px;
+}
+.segmentos button {
+  flex: 1; font-family: inherit; font-size: 14px; font-weight: 600;
+  padding: 9px 8px; border: 0; border-radius: 7px;
+  background: transparent; color: var(--texto-suave); cursor: pointer;
+}
+.segmentos button.activo { background: var(--verde); color: #fff; }
+
+/* ---------- Carpeta de día ---------- */
+.dia {
+  background: var(--panel); border: 1px solid var(--borde);
+  border-radius: var(--radio); margin-bottom: 9px; overflow: hidden;
+  box-shadow: var(--sombra);
+}
+.dia > summary {
+  list-style: none; cursor: pointer; padding: 12px 14px;
+  display: flex; align-items: center; gap: 11px; background: var(--panel-alt);
+}
+.dia > summary::-webkit-details-marker { display: none; }
+.dia[open] > summary { border-bottom: 1px solid var(--borde); }
+.dia .carpeta { font-size: 19px; line-height: 1; flex: none; }
+.dia .rot { flex: 1; min-width: 0; }
+.dia .fecha { display: block; font-weight: 650; font-size: 14.5px; line-height: 1.25; }
+.dia .cuenta { display: block; font-size: 12px; color: var(--texto-suave); margin-top: 2px; }
+.dia .flecha { color: var(--texto-suave); font-size: 13px; transition: transform .18s; }
+.dia[open] .flecha { transform: rotate(180deg); }
+.dia .contenido { padding: 10px 10px 2px; }
+.dia .contenido .item { box-shadow: none; }
+.dia .insignia {
+  flex: none; background: var(--verde); color: #fff; font-size: 12px; font-weight: 700;
+  min-width: 26px; height: 26px; padding: 0 7px; border-radius: 999px;
+  display: grid; place-items: center;
+}
+.dia.hoy > summary { background: var(--verde-suave); }

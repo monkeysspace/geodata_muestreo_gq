@@ -46,6 +46,10 @@ exportan vacías, a la espera del laboratorio.
 - **Correlativo automático** de muestra y de punto, por prefijo y por año.
 - **«Copiar datos de la muestra anterior»**, para quebradas donde la
   descripción se repite casi igual.
+- **Carpetas por jornada.** El listado agrupa las muestras por día de
+  muestreo («Hoy», «Ayer», «Viernes 18 de septiembre»), con la cuenta y los
+  proyectos de cada jornada; la más reciente viene abierta. El botón
+  «Todas» vuelve a la lista corrida, y la elección se recuerda.
 - **Croquis** de los puntos, dibujado con los datos del teléfono (sin mapas en
   línea), útil para detectar una coordenada mal tecleada.
 - **Distancia a la muestra anterior**, como control de espaciamiento.
