@@ -3,12 +3,13 @@ window.GQ = window.GQ || {};
 
 GQ.app = (function () {
   const $ = function (id) { return document.getElementById(id); };
-  const VERSION = '1.1.0';
+  const VERSION = '1.2.0';
   let ajustes = {};
   let vistaActual = 'form';
   let timerAviso = null;
 
   const POR_OMISION = {
+    entrega: 'compartir',
     proyecto: '',
     sector: '',
     sectores: [],
@@ -198,6 +199,34 @@ GQ.app = (function () {
     });
   }
 
+  /* El botón de compartir del sistema no existe en todos los equipos
+     (en un computador, por ejemplo). Ahí se deja solo la descarga. */
+  function prepararEntrega() {
+    const sel = $('exp-entrega');
+    const hay = GQ.exportar.compartirDisponible();
+    if (!hay) {
+      sel.value = 'descargar';
+      sel.querySelector('option[value="compartir"]').disabled = true;
+      sel.disabled = true;
+    } else {
+      sel.value = ajustes.entrega || 'compartir';
+    }
+    pintarAyudaEntrega(hay);
+  }
+
+  function pintarAyudaEntrega(hay) {
+    if (hay === undefined) hay = GQ.exportar.compartirDisponible();
+    const el = $('exp-entrega-ayuda');
+    if (!hay) {
+      el.textContent = 'Este equipo no ofrece el menú de compartir del sistema, ' +
+                       'así que el archivo se guarda en la carpeta de descargas.';
+      return;
+    }
+    el.textContent = $('exp-entrega').value === 'compartir'
+      ? 'Se abre el menú del teléfono para elegir a dónde enviarlo. No necesitas cable.'
+      : 'El archivo queda en la carpeta de descargas del teléfono.';
+  }
+
   function pintarResumenExport() {
     Promise.all([GQ.db.allSamples(), GQ.db.allPhotos()]).then(function (r) {
       let bytes = 0;
@@ -305,7 +334,13 @@ GQ.app = (function () {
         });
       });
 
+      prepararEntrega();
       $('exp-proyecto').addEventListener('change', pintarResumenExport);
+      $('exp-entrega').addEventListener('change', function () {
+        ajustes.entrega = this.value;
+        GQ.db.setSetting('entrega', this.value);
+        pintarAyudaEntrega();
+      });
       $('btn-xlsx').addEventListener('click', GQ.exportar.aExcel);
       $('btn-csv').addEventListener('click', GQ.exportar.aCSV);
       $('btn-zip').addEventListener('click', GQ.exportar.aZIP);

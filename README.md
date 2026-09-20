@@ -54,11 +54,15 @@ exportan vacías, a la espera del laboratorio.
 - **Hoja «Metadatos»** en el Excel con lat/lon, precisión del GPS, hora,
   operador y el nombre de los archivos de foto de cada muestra.
 - **Exportación a KML** para abrir los puntos en Google Earth o QGIS.
+- **Envío directo desde el teléfono.** Cualquier exportación se puede mandar
+  por WhatsApp, correo o Drive sin cable ni paso intermedio; en los equipos
+  que no ofrecen ese menú, el archivo se descarga como siempre.
 
 ## Formas de exportar
 
-Antes de exportar se elige **qué** (todas las muestras o un solo proyecto) y
-en **qué formato**: solo las columnas de terreno (A–R) o el compilado completo
+Antes de exportar se elige **qué** (todas las muestras o un solo proyecto),
+**a dónde va el archivo** (compartir por WhatsApp, correo o Drive con el menú
+del propio teléfono, o guardarlo en descargas) y en **qué formato**: solo las columnas de terreno (A–R) o el compilado completo
 (A–CD, con las columnas de química presentes y vacías a la espera del
 laboratorio).
 

@@ -5,6 +5,70 @@ window.GQ = window.GQ || {};
 GQ.exportar = (function () {
   const C = GQ.catalogs;
 
+  /* ---------- entrega del archivo: compartir o descargar ----------
+   * En el teléfono conviene mandar el archivo directo a WhatsApp, correo o
+   * Drive. Se usa la API de compartir del sistema; si el equipo o el tipo de
+   * archivo no la admiten, cae en la descarga de siempre. */
+
+  function archivoDe(blob, nombre) {
+    try {
+      return new File([blob], nombre, { type: blob.type || 'application/octet-stream' });
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function soportaCompartir(file) {
+    return !!(file && navigator.canShare && navigator.share &&
+              navigator.canShare({ files: [file] }));
+  }
+
+  /* ¿Puede este equipo compartir archivos? Se consulta con un archivo de
+     prueba del mismo tipo que exportamos. */
+  function compartirDisponible() {
+    if (!navigator.canShare || !navigator.share) return false;
+    const f = archivoDe(new Blob(['x'], { type: 'text/csv' }), 'prueba.csv');
+    try { return !!f && navigator.canShare({ files: [f] }); } catch (e) { return false; }
+  }
+
+  function modoEntrega() {
+    const sel = document.getElementById('exp-entrega');
+    return sel ? sel.value : 'descargar';
+  }
+
+  /* Punto único de salida de todos los exportadores. */
+  function entregar(blob, nombre, texto) {
+    if (modoEntrega() !== 'compartir') { descargar(blob, nombre); return Promise.resolve('descarga'); }
+
+    const file = archivoDe(blob, nombre);
+    if (!soportaCompartir(file)) {
+      descargar(blob, nombre);
+      GQ.app.aviso('Este equipo no puede compartir ese archivo: quedó descargado');
+      return Promise.resolve('avisado');
+    }
+
+    return navigator.share({
+      files: [file],
+      title: nombre,
+      text: texto || 'Muestreo de terreno — Geodata_edición_muestreo_GQ'
+    }).then(function () {
+      return 'compartido';
+    }).catch(function (e) {
+      /* El usuario cerró la hoja de compartir: no es un error. */
+      if (e && (e.name === 'AbortError' || e.name === 'NotAllowedError')) {
+        if (e.name === 'NotAllowedError') {
+          descargar(blob, nombre);
+          GQ.app.aviso('El navegador no dejó compartir: quedó descargado');
+          return 'avisado';
+        }
+        return 'cancelado';
+      }
+      descargar(blob, nombre);
+      GQ.app.aviso('No se pudo compartir: quedó descargado');
+      return 'avisado';
+    });
+  }
+
   function descargar(blob, nombre) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -32,6 +96,19 @@ GQ.exportar = (function () {
     if (!proyecto) return '';
     return '_' + proyecto.replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñ0-9]+/g, '_')
                          .replace(/^_+|_+$/g, '');
+  }
+
+  function nMuestras(n) {
+    return n + ' muestra' + (n === 1 ? '' : 's');
+  }
+
+  /* Mensaje que acompaña al archivo en WhatsApp o el correo. */
+  function resumenTexto(d) {
+    const n = d.rows ? d.rows.length : 0;
+    return 'Muestreo de terreno' + (d.proyecto ? ' — ' + d.proyecto : '') +
+           ': ' + nMuestras(n) +
+           '. Generado con Geodata_edición_muestreo_GQ el ' +
+           new Date().toLocaleDateString('es-CL') + '.';
   }
 
   function marca() {
@@ -131,9 +208,12 @@ GQ.exportar = (function () {
     return datosCompletos().then(function (d) {
       if (!d.rows.length) { GQ.app.aviso('No hay muestras que exportar'); return; }
       const blob = GQ.xlsx.build(hojas(d.rows, d.conteo, d.nombres, d.completo));
-      descargar(blob, 'Muestreo_GQ' + etiquetaProyecto(d.proyecto) + '_' + marca() + '.xlsx');
-      GQ.app.aviso('Excel generado: ' + d.rows.length + ' muestras' +
-                   (d.proyecto ? ' de ' + d.proyecto : ''));
+      const nombre = 'Muestreo_GQ' + etiquetaProyecto(d.proyecto) + '_' + marca() + '.xlsx';
+      return entregar(blob, nombre, resumenTexto(d)).then(function (via) {
+        if (via === 'cancelado' || via === 'avisado') return;
+        GQ.app.aviso('Excel ' + (via === 'compartido' ? 'compartido' : 'generado') +
+                     ': ' + nMuestras(d.rows.length) + (d.proyecto ? ' de ' + d.proyecto : ''));
+      });
     });
   }
 
@@ -168,8 +248,12 @@ GQ.exportar = (function () {
       if (!d.rows.length) { GQ.app.aviso('No hay muestras que exportar'); return; }
       const blob = new Blob([csvTexto(d.rows, d.conteo, d.nombres)],
                             { type: 'text/csv;charset=utf-8' });
-      descargar(blob, 'Muestreo_GQ' + etiquetaProyecto(d.proyecto) + '_' + marca() + '.csv');
-      GQ.app.aviso('CSV generado');
+      const nombre = 'Muestreo_GQ' + etiquetaProyecto(d.proyecto) + '_' + marca() + '.csv';
+      return entregar(blob, nombre, resumenTexto(d)).then(function (via) {
+        if (via === 'compartido' || via === 'descarga') {
+          GQ.app.aviso('CSV ' + (via === 'compartido' ? 'compartido' : 'generado'));
+        }
+      });
     });
   }
 
@@ -205,8 +289,12 @@ GQ.exportar = (function () {
         });
         return cadena;
       }).then(function () {
-        descargar(GQ.zip.build(archivos), base + '.zip');
-        GQ.app.aviso('Paquete listo: ' + d.rows.length + ' muestras');
+        return entregar(GQ.zip.build(archivos), base + '.zip', resumenTexto(d));
+      }).then(function (via) {
+        if (via === 'compartido' || via === 'descarga') {
+          GQ.app.aviso('Paquete ' + (via === 'compartido' ? 'compartido' : 'listo') +
+                       ': ' + nMuestras(d.rows.length));
+        }
       });
     });
   }
@@ -272,10 +360,14 @@ GQ.exportar = (function () {
   function aKML() {
     return datosCompletos().then(function (d) {
       if (!d.rows.length) { GQ.app.aviso('No hay muestras que exportar'); return; }
-      descargar(new Blob([kmlTexto(d.rows)],
-                { type: 'application/vnd.google-earth.kml+xml' }),
-                'Muestreo_GQ' + etiquetaProyecto(d.proyecto) + '_' + marca() + '.kml');
-      GQ.app.aviso('KML generado');
+      const nombre = 'Muestreo_GQ' + etiquetaProyecto(d.proyecto) + '_' + marca() + '.kml';
+      return entregar(new Blob([kmlTexto(d.rows)],
+                      { type: 'application/vnd.google-earth.kml+xml' }),
+                      nombre, resumenTexto(d)).then(function (via) {
+        if (via === 'compartido' || via === 'descarga') {
+          GQ.app.aviso('KML ' + (via === 'compartido' ? 'compartido' : 'generado'));
+        }
+      });
     });
   }
 
@@ -291,9 +383,13 @@ GQ.exportar = (function () {
         ajustes: r[1],
         muestras: r[0]
       };
-      descargar(new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' }),
-                'Respaldo_GQ_' + marca() + '.json');
-      GQ.app.aviso('Respaldo guardado');
+      return entregar(new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' }),
+                      'Respaldo_GQ_' + marca() + '.json',
+                      'Respaldo de ' + nMuestras(r[0].length)).then(function (via) {
+        if (via === 'compartido' || via === 'descarga') {
+          GQ.app.aviso('Respaldo ' + (via === 'compartido' ? 'compartido' : 'guardado'));
+        }
+      });
     });
   }
 
@@ -325,6 +421,7 @@ GQ.exportar = (function () {
   }
 
   return {
+    compartirDisponible: compartirDisponible,
     aExcel: aExcel, aCSV: aCSV, aZIP: aZIP, aKML: aKML,
     respaldar: respaldar, restaurar: restaurar,
     csvTexto: csvTexto, kmlTexto: kmlTexto, hojas: hojas, descargar: descargar
