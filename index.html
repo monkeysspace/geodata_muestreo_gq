@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<title>Geodata_edición_muestreo_GQ</title>
+<meta name="description" content="Registro de muestras de sedimento en terreno, sin conexión.">
+<meta name="theme-color" content="#2f5d50">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Muestreo GQ">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<header class="cabecera">
+  <h1>Geodata_edición_muestreo_GQ
+    <span class="sub" id="subtitulo">Registro de muestras en terreno</span>
+  </h1>
+  <button id="btn-tema" type="button" aria-label="Cambiar tema">◐</button>
+</header>
+
+<main>
+
+  <!-- ============ NUEVA / EDITAR MUESTRA ============ -->
+  <section class="vista" id="vista-form" aria-label="Formulario de muestra">
+    <div id="aviso-borrador"></div>
+    <form id="form-muestra" novalidate>
+
+      <details class="seccion" open>
+        <summary><span class="num">1</span> Identificación</summary>
+        <div class="cuerpo">
+          <div class="campo">
+            <label class="req" for="f-proyecto">Proyecto</label>
+            <input list="lista-proyectos" id="f-proyecto" name="proyecto" placeholder="Hoja Taltal" autocomplete="off">
+            <datalist id="lista-proyectos"></datalist>
+          </div>
+
+          <div class="campo">
+            <label class="req" for="f-punto">Punto de muestreo</label>
+            <div class="fila">
+              <select id="f-sector" style="max-width:110px" aria-label="Sector"></select>
+              <input id="f-punto-num" inputmode="numeric" placeholder="N.º" autocomplete="off" aria-label="Número del punto">
+            </div>
+            <input id="f-punto" name="punto" readonly style="margin-top:8px" aria-label="Código del punto">
+            <p class="ayuda">Se arma solo con el sector y el número: <b>CR-478</b>.</p>
+          </div>
+
+          <div class="campo">
+            <label class="req" for="f-muestra">Muestra</label>
+            <div class="fila-auto">
+              <input id="f-muestra" name="muestra" placeholder="GQ-25-CR-001" autocomplete="off">
+              <button type="button" class="btn btn-sec btn-chico" id="btn-correlativo" style="flex:none">Sugerir</button>
+            </div>
+            <p class="ayuda" id="ayuda-muestra">Formato <b>GQ-AA-SECTOR-NNN</b>. «Sugerir» toma el correlativo siguiente del sector.</p>
+          </div>
+
+          <div class="campo">
+            <label class="req" for="f-fecha">Fecha del muestreo</label>
+            <input type="date" id="f-fecha" name="fechaISO">
+            <p class="ayuda">A la planilla se exporta como <span id="vista-fecha">Mes Año</span>, igual que el compilado.</p>
+          </div>
+
+          <div class="campo">
+            <label for="f-duplicado">Duplicado de terreno</label>
+            <select id="f-duplicado" name="duplicado">
+              <option value="No">No</option>
+              <option value="Sí">Sí — es duplicado de otra muestra</option>
+            </select>
+            <div id="caja-duplicado" hidden style="margin-top:8px">
+              <input list="lista-muestras" id="f-duplicado-de" placeholder="Código de la muestra original" autocomplete="off">
+              <datalist id="lista-muestras"></datalist>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <details class="seccion" open>
+        <summary><span class="num">2</span> Ubicación</summary>
+        <div class="cuerpo">
+          <button type="button" class="btn btn-gps btn-bloque" id="btn-gps">📍 Tomar coordenadas del GPS</button>
+          <div class="gps-estado" id="gps-estado">Sin lectura de GPS. También puedes escribir las coordenadas a mano.</div>
+
+          <div class="fila" style="margin-top:13px">
+            <div class="campo" style="margin-bottom:0">
+              <label class="req" for="f-este">UTM Este</label>
+              <input id="f-este" name="este" inputmode="numeric" placeholder="328790">
+            </div>
+            <div class="campo" style="margin-bottom:0">
+              <label class="req" for="f-norte">UTM Norte</label>
+              <input id="f-norte" name="norte" inputmode="numeric" placeholder="7142101">
+            </div>
+          </div>
+
+          <div class="fila" style="margin-top:13px">
+            <div class="campo" style="margin-bottom:0">
+              <label for="f-altitud">Altitud (m s.n.m.)</label>
+              <input id="f-altitud" name="altitud" inputmode="numeric" placeholder="62">
+            </div>
+            <div class="campo" style="margin-bottom:0">
+              <label for="f-zona">Zona (Sirgas UTM)</label>
+              <input id="f-zona" name="zonaUTM" value="19S" readonly>
+            </div>
+          </div>
+          <p class="ayuda" id="dist-anterior"></p>
+        </div>
+      </details>
+
+      <details class="seccion" open>
+        <summary><span class="num">3</span> Descripción de la muestra</summary>
+        <div class="cuerpo">
+          <div class="campo">
+            <label class="req" for="f-tipo">Tipo de muestra</label>
+            <select id="f-tipo" name="tipoMuestra"></select>
+          </div>
+
+          <div class="campo">
+            <label for="f-escorrentia">Escorrentía en el momento del muestreo</label>
+            <select id="f-escorrentia" name="escorrentia"></select>
+          </div>
+
+          <div class="campo">
+            <label for="f-color">Color</label>
+            <input list="lista-colores" id="f-color" name="color" placeholder="Pardo" autocomplete="off">
+            <datalist id="lista-colores"></datalist>
+            <div class="chips" id="chips-color"></div>
+          </div>
+
+          <div class="campo">
+            <label for="f-granulometria">Estimación de granulometría principal</label>
+            <select id="f-granulometria" name="granulometria"></select>
+          </div>
+
+          <div class="campo">
+            <label for="f-materia">Presencia de materia orgánica húmica</label>
+            <select id="f-materia" name="materiaOrganica"></select>
+          </div>
+
+          <div class="campo">
+            <label for="f-clastos">Descripción de clastos</label>
+            <textarea id="f-clastos" name="clastos" placeholder="Clastos subangulosos de granito y andesita…"></textarea>
+            <p class="chips-titulo">Redondeamiento</p>
+            <div class="chips" id="chips-redondeamiento"></div>
+            <p class="chips-titulo">Litologías y minerales frecuentes</p>
+            <div class="chips" id="chips-litologias"></div>
+          </div>
+        </div>
+      </details>
+
+      <details class="seccion" open>
+        <summary><span class="num">4</span> Observaciones</summary>
+        <div class="cuerpo">
+          <div class="campo">
+            <label for="f-factores">Factores antropogénicos que podrían alterar la muestra</label>
+            <textarea id="f-factores" name="factores" placeholder="Sin observaciones"></textarea>
+            <div class="chips" id="chips-factores"></div>
+          </div>
+          <div class="campo">
+            <label for="f-otras">Otras observaciones</label>
+            <textarea id="f-otras" name="otras" placeholder="Sin observaciones"></textarea>
+            <div class="chips" id="chips-observaciones"></div>
+          </div>
+          <div class="campo">
+            <label for="f-operador">Operador</label>
+            <input id="f-operador" name="operador" placeholder="Quien toma la muestra" autocomplete="off">
+          </div>
+        </div>
+      </details>
+
+      <details class="seccion" open>
+        <summary><span class="num">5</span> Fotografías <span id="contador-fotos" style="margin-left:auto;font-weight:400;color:var(--texto-suave);font-size:12.5px"></span></summary>
+        <div class="cuerpo">
+          <div class="fila">
+            <button type="button" class="btn btn-sec" id="btn-camara">📷 Cámara</button>
+            <button type="button" class="btn btn-sec" id="btn-galeria">🖼️ Galería</button>
+          </div>
+          <input type="file" id="input-camara" accept="image/*" capture="environment" multiple hidden>
+          <input type="file" id="input-galeria" accept="image/*" multiple hidden>
+          <div class="galeria" id="galeria"></div>
+          <p class="ayuda" style="margin-top:10px">Las fotos se guardan dentro del teléfono y se exportan con el nombre de la muestra.</p>
+        </div>
+      </details>
+
+      <div class="acciones">
+        <button type="submit" class="btn btn-bloque" id="btn-guardar">Guardar muestra</button>
+        <button type="button" class="btn btn-sec btn-bloque" id="btn-copiar-anterior">Copiar datos de la muestra anterior</button>
+        <button type="button" class="btn btn-peligro btn-bloque" id="btn-descartar">Descartar</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- ============ LISTA ============ -->
+  <section class="vista" id="vista-lista" hidden aria-label="Muestras guardadas">
+    <div class="resumen" id="resumen"></div>
+    <div class="buscador">
+      <input id="buscar" placeholder="Buscar por muestra, punto, color…" autocomplete="off">
+    </div>
+    <div class="filtros">
+      <select id="filtro-proyecto"><option value="">Todos los proyectos</option></select>
+      <select id="filtro-sector"><option value="">Todos los sectores</option></select>
+    </div>
+    <div id="listado"></div>
+  </section>
+
+  <!-- ============ DETALLE ============ -->
+  <section class="vista" id="vista-detalle" hidden aria-label="Detalle de la muestra"></section>
+
+  <!-- ============ CROQUIS ============ -->
+  <section class="vista" id="vista-mapa" hidden aria-label="Croquis de puntos">
+    <h2 class="titulo">Croquis de puntos</h2>
+    <p class="nota">Distribución de los puntos guardados en coordenadas UTM. No usa mapas en línea: se dibuja con los datos del teléfono, así que funciona sin señal.</p>
+    <canvas id="croquis"></canvas>
+    <div id="mapa-info" class="gps-estado" style="margin-top:10px"></div>
+  </section>
+
+  <!-- ============ EXPORTAR ============ -->
+  <section class="vista" id="vista-exportar" hidden aria-label="Exportar datos">
+    <h2 class="titulo">Exportar</h2>
+    <div class="resumen" id="resumen-exportar"></div>
+    <div class="seccion">
+      <div class="cuerpo acciones">
+        <button class="btn btn-bloque" id="btn-xlsx">📊 Excel (.xlsx) con el formato del compilado</button>
+        <button class="btn btn-sec btn-bloque" id="btn-csv">📄 CSV (separado por punto y coma)</button>
+        <button class="btn btn-sec btn-bloque" id="btn-zip">🗂️ Paquete completo (Excel + fotos)</button>
+        <button class="btn btn-sec btn-bloque" id="btn-kml">🌍 KML para Google Earth / QGIS</button>
+      </div>
+    </div>
+    <h2 class="titulo">Respaldo</h2>
+    <div class="seccion">
+      <div class="cuerpo acciones">
+        <button class="btn btn-sec btn-bloque" id="btn-respaldo">💾 Guardar respaldo (.json)</button>
+        <button class="btn btn-sec btn-bloque" id="btn-restaurar">📥 Restaurar desde respaldo</button>
+        <input type="file" id="input-respaldo" accept="application/json,.json" hidden>
+      </div>
+    </div>
+    <p class="nota">El respaldo <b>no</b> incluye las fotos (pesarían demasiado). Para llevarte todo, usa el paquete completo.</p>
+  </section>
+
+  <!-- ============ AJUSTES ============ -->
+  <section class="vista" id="vista-ajustes" hidden aria-label="Ajustes">
+    <h2 class="titulo">Ajustes</h2>
+    <div class="seccion" >
+      <div class="cuerpo">
+        <div class="campo">
+          <label for="a-proyecto">Proyecto por omisión</label>
+          <input list="lista-proyectos" id="a-proyecto" autocomplete="off">
+        </div>
+        <div class="campo">
+          <label for="a-sector">Sector por omisión</label>
+          <select id="a-sector"></select>
+        </div>
+        <div class="campo">
+          <label for="a-operador">Operador</label>
+          <input id="a-operador" placeholder="Tu nombre" autocomplete="off">
+        </div>
+        <div class="campo">
+          <label for="a-prefijo">Prefijo de las muestras</label>
+          <input id="a-prefijo" value="GQ" autocomplete="off">
+          <p class="ayuda">Se combina con el año y el sector: <b>GQ</b>-25-CR-001.</p>
+        </div>
+        <div class="campo">
+          <label for="a-tipo">Tipo de muestra por omisión</label>
+          <select id="a-tipo"></select>
+        </div>
+        <div class="campo">
+          <label for="a-precision">Avisar si la precisión del GPS supera (m)</label>
+          <input id="a-precision" inputmode="numeric" value="15">
+        </div>
+        <div class="campo">
+          <label for="a-calidad">Tamaño de las fotos</label>
+          <select id="a-calidad">
+            <option value="1200">Liviana (1200 px)</option>
+            <option value="1600" selected>Media (1600 px)</option>
+            <option value="2200">Alta (2200 px)</option>
+          </select>
+        </div>
+        <button type="button" class="btn btn-bloque" id="btn-guardar-ajustes">Guardar ajustes</button>
+      </div>
+    </div>
+
+    <div class="seccion">
+      <summary style="padding:13px 15px;font-weight:620;font-size:14.5px">Almacenamiento</summary>
+      <div class="cuerpo">
+        <div id="uso-almacen" class="gps-estado"></div>
+        <button type="button" class="btn btn-peligro btn-bloque" id="btn-borrar-todo" style="margin-top:12px">Borrar todas las muestras</button>
+        <p class="ayuda" style="margin-top:8px">Exporta antes: esta acción no se puede deshacer.</p>
+      </div>
+    </div>
+
+    <p class="nota">Versión <span id="version">1.0</span> · Los datos viven solo en este teléfono. Nada se envía por internet.</p>
+  </section>
+
+</main>
+
+<nav class="barra" aria-label="Navegación principal">
+  <button type="button" data-vista="form"><span class="ico">＋</span>Nueva</button>
+  <button type="button" data-vista="lista"><span class="ico">≡</span>Muestras</button>
+  <button type="button" data-vista="mapa"><span class="ico">◎</span>Croquis</button>
+  <button type="button" data-vista="exportar"><span class="ico">↓</span>Exportar</button>
+  <button type="button" data-vista="ajustes"><span class="ico">⚙</span>Ajustes</button>
+</nav>
+
+<div class="aviso" id="aviso" role="status" aria-live="polite"></div>
+
+<script src="js/catalogs.js"></script>
+<script src="js/db.js"></script>
+<script src="js/geo.js"></script>
+<script src="js/zip.js"></script>
+<script src="js/xlsx.js"></script>
+<script src="js/photos.js"></script>
+<script src="js/form.js"></script>
+<script src="js/list.js"></script>
+<script src="js/map.js"></script>
+<script src="js/export.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
