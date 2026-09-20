@@ -3,7 +3,7 @@ window.GQ = window.GQ || {};
 
 GQ.app = (function () {
   const $ = function (id) { return document.getElementById(id); };
-  const VERSION = '1.3.0';
+  const VERSION = '1.3.1';
   let ajustes = {};
   let vistaActual = 'form';
   let timerAviso = null;
@@ -237,10 +237,14 @@ GQ.app = (function () {
       const previo = sel.value;
       const proyectos = {};
       r[0].forEach(function (s) { if (s.proyecto) proyectos[s.proyecto] = (proyectos[s.proyecto] || 0) + 1; });
-      sel.innerHTML = '<option value="">Todas las muestras (' + r[0].length + ')</option>';
+      sel.innerHTML = '';
+      const todas = document.createElement('option');
+      todas.value = ''; todas.textContent = 'Todas las muestras (' + r[0].length + ')';
+      sel.appendChild(todas);
       Object.keys(proyectos).sort().forEach(function (p) {
-        sel.insertAdjacentHTML('beforeend',
-          '<option value="' + p.replace(/"/g, '&quot;') + '">' + p + ' (' + proyectos[p] + ')</option>');
+        const o = document.createElement('option');
+        o.value = p; o.textContent = p + ' (' + proyectos[p] + ')';
+        sel.appendChild(o);
       });
       sel.value = proyectos[previo] ? previo : '';
       $('exp-conteo').textContent = sel.value
@@ -337,8 +341,7 @@ GQ.app = (function () {
       prepararEntrega();
       $('exp-proyecto').addEventListener('change', pintarResumenExport);
       $('exp-entrega').addEventListener('change', function () {
-        ajustes.entrega = this.value;
-        GQ.db.setSetting('entrega', this.value);
+        GQ.app.guardarAjuste('entrega', this.value);
         pintarAyudaEntrega();
       });
       $('btn-xlsx').addEventListener('click', GQ.exportar.aExcel);
@@ -386,6 +389,13 @@ GQ.app = (function () {
 
   return {
     ir: ir, aviso: aviso, refrescar: refrescar,
+    /* Guarda un ajuste suelto sin perderlo cuando después se pulse
+       «Guardar ajustes», que reescribe todo lo que tiene en memoria. */
+    guardarAjuste: function (clave, valor) {
+      ajustes[clave] = valor;
+      GQ.form.setAjustes(ajustes);
+      return GQ.db.setSetting(clave, valor);
+    },
     refrescarCatalogos: function () { if ($('a-sectores-lista')) pintarCatalogos(); },
     ajustes: function () { return ajustes; },
     VERSION: VERSION

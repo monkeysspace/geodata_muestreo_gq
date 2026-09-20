@@ -26,11 +26,14 @@ GQ.list = (function () {
   function etiquetaDia(iso) {
     if (iso === 'sin-fecha') return 'Sin fecha';
     const hoy = new Date();
-    const ayer = new Date(hoy.getTime() - 86400000);
+    /* Restar 24 h falla los días que duran 23 o 25 horas por el cambio de
+       horario; el día anterior se toma del calendario. */
+    const ayer = new Date(hoy);
+    ayer.setDate(ayer.getDate() - 1);
     if (iso === isoDe(hoy)) return 'Hoy';
     if (iso === isoDe(ayer)) return 'Ayer';
     const d = new Date(iso + 'T12:00:00');
-    if (isNaN(d.getTime())) return iso;
+    if (isNaN(d.getTime())) return 'Sin fecha';
     const mismoAno = d.getFullYear() === hoy.getFullYear();
     const opts = { weekday: 'long', day: 'numeric', month: 'long' };
     if (!mismoAno) opts.year = 'numeric';
@@ -192,8 +195,11 @@ GQ.list = (function () {
     grupo.rows.forEach(function (s) { cuerpo.appendChild(crearItem(s)); });
     det.appendChild(cuerpo);
 
+    /* El evento 'toggle' también se dispara por las carpetas que abre el
+       propio código (al buscar, por ejemplo), así que la preferencia del
+       usuario se toma del clic: ahí det.open todavía vale lo de antes. */
+    sum.addEventListener('click', function () { abiertos[grupo.dia] = !det.open; });
     det.addEventListener('toggle', function () {
-      abiertos[grupo.dia] = det.open;
       sum.querySelector('.carpeta').textContent = det.open ? '📂' : '📁';
     });
     return det;
@@ -205,7 +211,9 @@ GQ.list = (function () {
     resumen(cache, $('resumen'));
 
     document.querySelectorAll('#modo-lista button').forEach(function (b) {
-      b.classList.toggle('activo', b.dataset.modo === modo);
+      const activo = b.dataset.modo === modo;
+      b.classList.toggle('activo', activo);
+      b.setAttribute('aria-selected', activo ? 'true' : 'false');
     });
 
     if (!cache.length) {
@@ -321,15 +329,23 @@ GQ.list = (function () {
     });
     const fp = $('filtro-proyecto'), fs = $('filtro-sector');
     const vp = fp.value, vs = fs.value;
-    fp.innerHTML = '<option value="">Todos los proyectos</option>';
-    Object.keys(proyectos).sort().forEach(function (p) {
-      fp.insertAdjacentHTML('beforeend', '<option>' + p + '</option>');
-    });
-    fs.innerHTML = '<option value="">Todos los prefijos</option>';
-    Object.keys(sectores).sort().forEach(function (p) {
-      fs.insertAdjacentHTML('beforeend', '<option>' + p + '</option>');
-    });
+    llenarSelect(fp, 'Todos los proyectos', Object.keys(proyectos).sort());
+    llenarSelect(fs, 'Todos los prefijos', Object.keys(sectores).sort());
     fp.value = vp; fs.value = vs;
+  }
+
+  /* Los nombres de proyecto los escribe el usuario: se insertan como texto,
+     nunca como HTML, para que un «<» no rompa el desplegable. */
+  function llenarSelect(sel, etiquetaVacia, valores) {
+    sel.innerHTML = '';
+    const primera = document.createElement('option');
+    primera.value = ''; primera.textContent = etiquetaVacia;
+    sel.appendChild(primera);
+    valores.forEach(function (v) {
+      const o = document.createElement('option');
+      o.value = v; o.textContent = v;
+      sel.appendChild(o);
+    });
   }
 
   function init() {
@@ -337,7 +353,7 @@ GQ.list = (function () {
       b.addEventListener('click', function () {
         if (modo === b.dataset.modo) return;
         modo = b.dataset.modo;
-        GQ.db.setSetting('modoLista', modo);
+        GQ.app.guardarAjuste('modoLista', modo);
         pintar();
       });
     });

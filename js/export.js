@@ -221,9 +221,18 @@ GQ.exportar = (function () {
 
   function csvTexto(rows, conteo, nombres) {
     const sep = ';';
+    /* Excel evalúa como fórmula cualquier celda que empiece con = + @ o con
+       un - que no sea número. Un apunte como «=2 mm» llegaría convertido en
+       #NAME?; se antepone un apóstrofo para que viaje como texto. */
+    function neutralizar(s) {
+      if (/^[=@+]/.test(s)) return "'" + s;
+      if (/^-/.test(s) && !/^-\d/.test(s)) return "'" + s;
+      return s;
+    }
     function celda(v) {
       if (v === null || v === undefined) return '';
-      const s = String(v);
+      let s = String(v);
+      if (typeof v !== 'number') s = neutralizar(s);
       return /[";\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
     }
     const cols = C.columnas.concat([
@@ -415,7 +424,8 @@ GQ.exportar = (function () {
         });
       });
     }).catch(function (e) {
-      console.error(e);
+      /* Esperable si eligen el archivo equivocado: no es una falla de la app. */
+      console.warn('Respaldo no válido:', e.message);
       GQ.app.aviso('El archivo no es un respaldo válido');
     });
   }

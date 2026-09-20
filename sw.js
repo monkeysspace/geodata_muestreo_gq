@@ -1,6 +1,6 @@
 /* Service worker: deja la app completa guardada en el teléfono.
  * Una vez abierta con señal, arranca igual en terreno sin cobertura. */
-const CACHE = 'geodata-gq-v1.3.0';
+const CACHE = 'geodata-gq-v1.3.1';
 
 const ARCHIVOS = [
   './',
