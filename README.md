@@ -17,13 +17,13 @@ Los campos son exactamente los de las columnas **A a R** de la planilla maestra:
 | Campo | Cómo se ingresa |
 |---|---|
 | Proyecto | Lista (Hoja Taltal / Hoja El Salvador) o texto libre |
-| Punto de muestreo | Sector + número → `CR-478` |
-| Muestra | Correlativo sugerido: `GQ-26-CR-001` |
+| Punto de muestreo | Prefijo propio + número → `QDA-478` |
+| Muestra | Correlativo sugerido: `GQ-26-QDA-001` |
 | Altitud (m s.n.m.) | Del GPS o a mano |
 | UTM Este / Norte (Sirgas UTM 19S) | Del GPS o a mano |
 | Fecha del muestreo | Calendario; se exporta como «Septiembre 2026» |
 | Duplicado de terreno | No / código de la muestra original |
-| Tipo de muestra | Lista de los 4 tipos usados |
+| Tipo de muestra | Los 4 tipos del compilado, más los que agregue el usuario |
 | Escorrentía | Sí / No / Sin información |
 | Color | Lista de 36 colores + accesos rápidos a los 6 más usados |
 | Granulometría principal | Escala de Udden-Wentworth completa |
@@ -39,7 +39,11 @@ exportan vacías, a la espera del laboratorio.
 
 - **GPS con conversión a UTM.** Un botón toma la posición y la convierte a
   Sirgas UTM 19S. Avisa si la precisión es peor que el umbral configurado.
-- **Correlativo automático** de muestra y de punto, por sector y por año.
+- **Prefijos propios.** Los códigos de punto (`QDA`, `RIO`, …) los crea el
+  usuario desde el formulario o desde Ajustes; la app no impone ninguno.
+- **Tipos de muestra propios**, que se suman a los cuatro del compilado y
+  quedan guardados para las próximas fichas.
+- **Correlativo automático** de muestra y de punto, por prefijo y por año.
 - **«Copiar datos de la muestra anterior»**, para quebradas donde la
   descripción se repite casi igual.
 - **Croquis** de los puntos, dibujado con los datos del teléfono (sin mapas en
@@ -53,9 +57,14 @@ exportan vacías, a la espera del laboratorio.
 
 ## Formas de exportar
 
+Antes de exportar se elige **qué** (todas las muestras o un solo proyecto) y
+en **qué formato**: solo las columnas de terreno (A–R) o el compilado completo
+(A–CD, con las columnas de química presentes y vacías a la espera del
+laboratorio).
+
 | Botón | Entrega |
 |---|---|
-| Excel (.xlsx) | Hoja `Muestras` (columnas A–R del compilado) + hoja `Metadatos` |
+| Excel (.xlsx) | Hoja `Muestras` (A–R, o A–CD en formato completo) + hoja `Metadatos` |
 | CSV | Lo mismo separado por punto y coma, con BOM para que Excel respete las tildes |
 | Paquete completo (.zip) | Excel + CSV + KML + carpeta `fotos/` con los archivos nombrados `GQ-26-CR-001_01.jpg` |
 | KML | Puntos para Google Earth / QGIS |

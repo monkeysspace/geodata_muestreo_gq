@@ -43,20 +43,28 @@
           <div class="campo">
             <label class="req" for="f-punto">Punto de muestreo</label>
             <div class="fila">
-              <select id="f-sector" style="max-width:110px" aria-label="Sector"></select>
+              <select id="f-sector" style="max-width:130px" aria-label="Prefijo del punto"></select>
               <input id="f-punto-num" inputmode="numeric" placeholder="N.º" autocomplete="off" aria-label="Número del punto">
             </div>
+            <div id="caja-sector-nuevo" hidden style="margin-top:8px">
+              <div class="fila-auto">
+                <input id="f-sector-nuevo" placeholder="Escribe tu prefijo (ej: QDA)" autocomplete="off"
+                       maxlength="10" aria-label="Nuevo prefijo">
+                <button type="button" class="btn btn-chico" id="btn-sector-crear" style="flex:none">Crear</button>
+                <button type="button" class="btn btn-sec btn-chico" id="btn-sector-cancelar" style="flex:none">✕</button>
+              </div>
+            </div>
             <input id="f-punto" name="punto" readonly style="margin-top:8px" aria-label="Código del punto">
-            <p class="ayuda">Se arma solo con el sector y el número: <b>CR-478</b>.</p>
+            <p class="ayuda">Los prefijos los creas tú. Se arma solo con el prefijo y el número: <b>QDA-478</b>.</p>
           </div>
 
           <div class="campo">
             <label class="req" for="f-muestra">Muestra</label>
             <div class="fila-auto">
-              <input id="f-muestra" name="muestra" placeholder="GQ-25-CR-001" autocomplete="off">
+              <input id="f-muestra" name="muestra" placeholder="GQ-26-QDA-001" autocomplete="off">
               <button type="button" class="btn btn-sec btn-chico" id="btn-correlativo" style="flex:none">Sugerir</button>
             </div>
-            <p class="ayuda" id="ayuda-muestra">Formato <b>GQ-AA-SECTOR-NNN</b>. «Sugerir» toma el correlativo siguiente del sector.</p>
+            <p class="ayuda" id="ayuda-muestra">Formato <b>GQ-AA-PREFIJO-NNN</b>. «Sugerir» toma el correlativo siguiente de ese prefijo.</p>
           </div>
 
           <div class="campo">
@@ -116,6 +124,14 @@
           <div class="campo">
             <label class="req" for="f-tipo">Tipo de muestra</label>
             <select id="f-tipo" name="tipoMuestra"></select>
+            <div id="caja-tipo-nuevo" hidden style="margin-top:8px">
+              <div class="fila-auto">
+                <input id="f-tipo-nuevo" placeholder="Escribe el tipo nuevo" autocomplete="off" aria-label="Nuevo tipo de muestra">
+                <button type="button" class="btn btn-chico" id="btn-tipo-crear" style="flex:none">Agregar</button>
+                <button type="button" class="btn btn-sec btn-chico" id="btn-tipo-cancelar" style="flex:none">✕</button>
+              </div>
+              <p class="ayuda">Queda guardado en la lista para las próximas muestras.</p>
+            </div>
           </div>
 
           <div class="campo">
@@ -201,7 +217,7 @@
     </div>
     <div class="filtros">
       <select id="filtro-proyecto"><option value="">Todos los proyectos</option></select>
-      <select id="filtro-sector"><option value="">Todos los sectores</option></select>
+      <select id="filtro-sector"><option value="">Todos los prefijos</option></select>
     </div>
     <div id="listado"></div>
   </section>
@@ -221,6 +237,24 @@
   <section class="vista" id="vista-exportar" hidden aria-label="Exportar datos">
     <h2 class="titulo">Exportar</h2>
     <div class="resumen" id="resumen-exportar"></div>
+    <div class="seccion">
+      <div class="cuerpo">
+        <div class="campo">
+          <label for="exp-proyecto">Qué exportar</label>
+          <select id="exp-proyecto"><option value="">Todas las muestras</option></select>
+          <p class="ayuda" id="exp-conteo"></p>
+        </div>
+        <div class="campo" style="margin-bottom:0">
+          <label class="etiqueta" for="exp-completo">Formato de la planilla</label>
+          <select id="exp-completo">
+            <option value="terreno">Solo columnas de terreno (A–R)</option>
+            <option value="completo">Compilado completo (A–CD, química vacía)</option>
+          </select>
+          <p class="ayuda">El formato completo incluye las columnas de laboratorio
+            (CTOTAL, SiO2, Cu, Au…) vacías, para que el archivo quede idéntico al compilado.</p>
+        </div>
+      </div>
+    </div>
     <div class="seccion">
       <div class="cuerpo acciones">
         <button class="btn btn-bloque" id="btn-xlsx">📊 Excel (.xlsx) con el formato del compilado</button>
@@ -250,7 +284,7 @@
           <input list="lista-proyectos" id="a-proyecto" autocomplete="off">
         </div>
         <div class="campo">
-          <label for="a-sector">Sector por omisión</label>
+          <label for="a-sector">Prefijo por omisión</label>
           <select id="a-sector"></select>
         </div>
         <div class="campo">
@@ -260,11 +294,29 @@
         <div class="campo">
           <label for="a-prefijo">Prefijo de las muestras</label>
           <input id="a-prefijo" value="GQ" autocomplete="off">
-          <p class="ayuda">Se combina con el año y el sector: <b>GQ</b>-25-CR-001.</p>
+          <p class="ayuda">Se combina con el año y tu prefijo: <b>GQ</b>-26-QDA-001.</p>
         </div>
         <div class="campo">
           <label for="a-tipo">Tipo de muestra por omisión</label>
           <select id="a-tipo"></select>
+        </div>
+        <div class="campo">
+          <span class="etiqueta">Mis prefijos de punto</span>
+          <div class="fila-auto">
+            <input id="a-sector-nuevo" placeholder="Nuevo prefijo (ej: QDA)" maxlength="10" autocomplete="off">
+            <button type="button" class="btn btn-chico" id="a-sector-add" style="flex:none">Agregar</button>
+          </div>
+          <div class="chips" id="a-sectores-lista"></div>
+          <p class="ayuda">Toca un prefijo para eliminarlo de la lista.</p>
+        </div>
+        <div class="campo">
+          <span class="etiqueta">Mis tipos de muestra</span>
+          <div class="fila-auto">
+            <input id="a-tipo-nuevo" placeholder="Nuevo tipo de muestra" autocomplete="off">
+            <button type="button" class="btn btn-chico" id="a-tipo-add" style="flex:none">Agregar</button>
+          </div>
+          <div class="chips" id="a-tipos-lista"></div>
+          <p class="ayuda">Los cuatro tipos del compilado no se pueden borrar. Toca los tuyos para eliminarlos.</p>
         </div>
         <div class="campo">
           <label for="a-precision">Avisar si la precisión del GPS supera (m)</label>

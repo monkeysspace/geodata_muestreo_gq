@@ -9,8 +9,9 @@ GQ.catalogs = {
 
   proyectos: ['Hoja Taltal', 'Hoja El Salvador'],
 
-  /* Prefijo del punto de muestreo = sector / cuadrángulo de trabajo */
-  sectores: ['CR', 'FA', 'FC', 'FE', 'JB', 'JP', 'LB', 'CM', 'NM'],
+  /* Los prefijos del punto de muestreo los crea el usuario y quedan
+     guardados en los ajustes. La app no impone ninguno. */
+  sectoresPorOmision: [],
 
   tipoMuestra: [
     'Compósito de sedimento de corriente',
@@ -105,6 +106,76 @@ GQ.catalogs = {
     { key: 'materiaOrganica', header: 'Presencia de materia orgánica húmica' },
     { key: 'factores',        header: 'FACTORES ANTROPOGÉNICOS QUE PODRÍAN ALTERAR LA MUESTRA' },
     { key: 'otras',           header: 'OTRAS OBSERVACIONES ' }
+  ],
+
+  /* Columnas S a CD del compilado: química de laboratorio. La app no las
+     pide en terreno, pero puede dejarlas presentes y vacías para que el
+     archivo exportado tenga exactamente la misma forma que el compilado. */
+  columnasQuimica: [
+    "",
+    "CTOTAL \n%",
+    " STOTAL\n%",
+    "SiO2",
+    "Al2O3",
+    "Fe2O3",
+    "MgO",
+    "CaO",
+    "Na2O",
+    "K2O",
+    "TiO2",
+    "P2O5",
+    "MnO",
+    "Cr2O3",
+    "LOI",
+    "Suma",
+    "Sc",
+    "Ba",
+    "Be",
+    "Co",
+    "Cs",
+    "Ga",
+    "Hf",
+    "Nb",
+    "Rb",
+    "Sn",
+    "Sr",
+    "Ta",
+    "V",
+    "W",
+    "Zr",
+    "Y",
+    "La",
+    "Ce",
+    "Pr",
+    "Nd",
+    "Sm",
+    "Eu",
+    "Gd",
+    "Tb",
+    "Dy",
+    "Ho",
+    "Er",
+    "Tm",
+    "Yb",
+    "Lu",
+    "Th",
+    "U",
+    "Mo",
+    "Cu",
+    "Pb",
+    "Zn",
+    "Ni",
+    "As",
+    "Cd",
+    "Sb",
+    "Bi",
+    "Ag",
+    "Au",
+    "Hg",
+    "Tl",
+    "Se",
+    "Te ppm",
+    "B ppm"
   ],
 
   /* Segunda hoja: trazabilidad que la planilla original no tiene */

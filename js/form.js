@@ -22,6 +22,60 @@ GQ.form = (function () {
     });
   }
 
+  /* Prefijos de punto: los crea el usuario, no vienen impuestos.
+     El valor '__nuevo__' es el que abre el cuadro para escribir uno. */
+  function listaSectores() {
+    return (ajustes.sectores || []).slice();
+  }
+
+  function pintarSectores(seleccionado) {
+    const sel = $('f-sector');
+    const lista = listaSectores();
+    if (seleccionado && lista.indexOf(seleccionado) < 0) lista.push(seleccionado);
+    sel.innerHTML = '';
+    if (!lista.length) {
+      const o = document.createElement('option');
+      o.value = ''; o.textContent = '— sin prefijo —';
+      sel.appendChild(o);
+    }
+    lista.forEach(function (v) {
+      const o = document.createElement('option');
+      o.value = v; o.textContent = v;
+      if (v === seleccionado) o.selected = true;
+      sel.appendChild(o);
+    });
+    const o = document.createElement('option');
+    o.value = '__nuevo__'; o.textContent = '➕ Crear prefijo…';
+    sel.appendChild(o);
+  }
+
+  function listaTipos() {
+    return C.tipoMuestra.concat(ajustes.tiposExtra || []);
+  }
+
+  function pintarTipos(seleccionado) {
+    const sel = $('f-tipo');
+    const lista = listaTipos();
+    if (seleccionado && lista.indexOf(seleccionado) < 0) lista.push(seleccionado);
+    sel.innerHTML = '';
+    lista.forEach(function (v) {
+      const o = document.createElement('option');
+      o.value = v; o.textContent = v;
+      if (v === seleccionado) o.selected = true;
+      sel.appendChild(o);
+    });
+    const o = document.createElement('option');
+    o.value = '__nuevo__'; o.textContent = '➕ Agregar otro tipo…';
+    sel.appendChild(o);
+  }
+
+  /* Guarda una entrada nueva en el catálogo del usuario. */
+  function agregarACatalogo(clave, valor) {
+    ajustes[clave] = (ajustes[clave] || []).slice();
+    if (ajustes[clave].indexOf(valor) < 0) ajustes[clave].push(valor);
+    return GQ.db.setSetting(clave, ajustes[clave]);
+  }
+
   function datalist(el, valores) {
     el.innerHTML = '';
     valores.forEach(function (v) {
@@ -75,27 +129,34 @@ GQ.form = (function () {
 
   /* ---------- correlativo ---------- */
 
+  /* Mientras no exista un prefijo propio, el código se arma sin ese tramo
+     (GQ-26-001) para que la app sirva desde la primera muestra. */
   function sugerirCodigo() {
-    const sector = $('f-sector').value;
+    let sector = $('f-sector').value;
+    if (sector === '__nuevo__') sector = '';
     const prefijo = (ajustes.prefijo || 'GQ').toUpperCase();
     const iso = $('f-fecha').value || hoyISO();
     const aa = iso.slice(2, 4);
+    const raiz = prefijo + '-' + aa + (sector ? '-' + sector : '');
     return GQ.db.allSamples().then(function (rows) {
-      const re = new RegExp('^' + prefijo + '-' + aa + '-' + sector + '-(\\d+)$', 'i');
+      const re = new RegExp('^' + raiz.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '-(\\d+)$', 'i');
       let max = 0;
       rows.forEach(function (r) {
         if (estado && r.id === estado.id) return;
         const m = re.exec((r.muestra || '').trim());
         if (m) max = Math.max(max, parseInt(m[1], 10));
       });
-      return prefijo + '-' + aa + '-' + sector + '-' + String(max + 1).padStart(3, '0');
+      return raiz + '-' + String(max + 1).padStart(3, '0');
     });
   }
 
   function sugerirPunto() {
-    const sector = $('f-sector').value;
+    let sector = $('f-sector').value;
+    if (sector === '__nuevo__') sector = '';
     return GQ.db.allSamples().then(function (rows) {
-      const re = new RegExp('^' + sector + '-(\\d+)$', 'i');
+      const re = sector
+        ? new RegExp('^' + sector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '-(\\d+)$', 'i')
+        : /^(\d+)$/;
       let max = 0;
       rows.forEach(function (r) {
         if (estado && r.id === estado.id) return;
@@ -107,9 +168,49 @@ GQ.form = (function () {
   }
 
   function componerPunto() {
-    const s = $('f-sector').value;
+    const sec = $('f-sector').value;
     const n = ($('f-punto-num').value || '').trim();
-    $('f-punto').value = n ? s + '-' + n : '';
+    if (!sec || sec === '__nuevo__') { $('f-punto').value = n; return; }
+    $('f-punto').value = n ? sec + '-' + n : '';
+  }
+
+  function crearSector() {
+    const v = ($('f-sector-nuevo').value || '').trim().toUpperCase();
+    if (!v) { GQ.app.aviso('Escribe el prefijo'); return; }
+    if (!/^[A-ZÑ0-9]{1,10}$/.test(v)) {
+      GQ.app.aviso('Usa solo letras y números, sin espacios ni guiones');
+      return;
+    }
+    agregarACatalogo('sectores', v).then(function () {
+      $('caja-sector-nuevo').hidden = true;
+      pintarSectores(v);
+      componerPunto();
+      GQ.app.refrescarCatalogos();
+      return Promise.all([sugerirCodigo(), sugerirPunto()]);
+    }).then(function (r) {
+      if (r[0]) $('f-muestra').value = r[0];
+      if (r[1] && !$('f-punto-num').value) { $('f-punto-num').value = r[1]; componerPunto(); }
+      GQ.app.aviso('Prefijo ' + v + ' creado');
+      guardarBorrador();
+    });
+  }
+
+  function crearTipo() {
+    const v = ($('f-tipo-nuevo').value || '').trim();
+    if (!v) { GQ.app.aviso('Escribe el tipo de muestra'); return; }
+    if (listaTipos().indexOf(v) >= 0) {
+      $('caja-tipo-nuevo').hidden = true;
+      pintarTipos(v);
+      GQ.app.aviso('Ese tipo ya estaba en la lista');
+      return;
+    }
+    agregarACatalogo('tiposExtra', v).then(function () {
+      $('caja-tipo-nuevo').hidden = true;
+      pintarTipos(v);
+      GQ.app.refrescarCatalogos();
+      GQ.app.aviso('Tipo agregado');
+      guardarBorrador();
+    });
   }
 
   /* ---------- GPS ---------- */
@@ -217,7 +318,7 @@ GQ.form = (function () {
     return {
       id: estado.id,
       proyecto: $('f-proyecto').value.trim(),
-      sector: $('f-sector').value,
+      sector: $('f-sector').value === '__nuevo__' ? '' : $('f-sector').value,
       puntoNum: $('f-punto-num').value.trim(),
       punto: $('f-punto').value.trim(),
       muestra: $('f-muestra').value.trim(),
@@ -233,7 +334,7 @@ GQ.form = (function () {
       lon: estado.lon != null ? estado.lon : null,
       precision: estado.precision != null ? estado.precision : null,
       origenCoord: estado.origenCoord || 'Ingreso manual',
-      tipoMuestra: $('f-tipo').value,
+      tipoMuestra: $('f-tipo').value === '__nuevo__' ? '' : $('f-tipo').value,
       escorrentia: $('f-escorrentia').value,
       color: $('f-color').value.trim(),
       granulometria: $('f-granulometria').value,
@@ -275,6 +376,7 @@ GQ.form = (function () {
     if (!marcar('f-punto-num', !d.punto)) faltan.push('punto de muestreo');
     if (!marcar('f-muestra', !d.muestra)) faltan.push('código de muestra');
     if (!marcar('f-fecha', !d.fechaISO)) faltan.push('fecha');
+    if (!marcar('f-tipo', !d.tipoMuestra)) faltan.push('tipo de muestra');
     if (!marcar('f-este', !d.este)) faltan.push('UTM Este');
     if (!marcar('f-norte', !d.norte)) faltan.push('UTM Norte');
     return faltan;
@@ -338,8 +440,10 @@ GQ.form = (function () {
 
   function pintar(d) {
     $('f-proyecto').value = d.proyecto || '';
-    $('f-sector').value = d.sector || (C.sectores.indexOf(d.sector) >= 0 ? d.sector : $('f-sector').value);
-    $('f-punto-num').value = d.puntoNum || (d.punto ? String(d.punto).split('-').slice(1).join('-') : '');
+    pintarSectores(d.sector || '');
+    $('caja-sector-nuevo').hidden = true;
+    $('f-punto-num').value = d.puntoNum ||
+      (d.punto ? (d.sector ? String(d.punto).split('-').slice(1).join('-') : String(d.punto)) : '');
     componerPunto();
     $('f-muestra').value = d.muestra || '';
     $('f-fecha').value = d.fechaISO || hoyISO();
@@ -351,7 +455,8 @@ GQ.form = (function () {
     $('f-norte').value = d.norte != null ? d.norte : '';
     $('f-altitud').value = (d.altitud != null && !isNaN(d.altitud)) ? d.altitud : '';
     $('f-zona').value = d.zonaUTM || '19S';
-    $('f-tipo').value = d.tipoMuestra || ajustes.tipoMuestra || C.tipoMuestra[0];
+    pintarTipos(d.tipoMuestra || ajustes.tipoMuestra || C.tipoMuestra[0]);
+    $('caja-tipo-nuevo').hidden = true;
     $('f-escorrentia').value = d.escorrentia || 'No';
     $('f-color').value = d.color || '';
     $('f-granulometria').value = d.granulometria || '0,5-0,25 mm, arena media';
@@ -390,7 +495,7 @@ GQ.form = (function () {
 
     const d = {
       proyecto: base.proyecto || ajustes.proyecto || '',
-      sector: base.sector || ajustes.sector || C.sectores[0],
+      sector: base.sector || ajustes.sector || listaSectores()[0] || '',
       fechaISO: base.fechaISO || hoyISO(),
       operador: base.operador || ajustes.operador || '',
       tipoMuestra: base.tipoMuestra || ajustes.tipoMuestra || C.tipoMuestra[0],
@@ -460,8 +565,8 @@ GQ.form = (function () {
   function init(_ajustes) {
     ajustes = _ajustes || {};
 
-    opciones($('f-sector'), C.sectores, ajustes.sector);
-    opciones($('f-tipo'), C.tipoMuestra);
+    pintarSectores(ajustes.sector);
+    pintarTipos(ajustes.tipoMuestra);
     opciones($('f-escorrentia'), C.escorrentia);
     opciones($('f-granulometria'), C.granulometria);
     opciones($('f-materia'), C.materiaOrganica);
@@ -484,9 +589,46 @@ GQ.form = (function () {
     chips($('chips-observaciones'), C.observaciones, function (v) { agregarTexto($('f-otras'), v); });
 
     $('f-sector').addEventListener('change', function () {
+      if (this.value === '__nuevo__') {
+        $('caja-sector-nuevo').hidden = false;
+        $('f-sector-nuevo').value = '';
+        $('f-sector-nuevo').focus();
+        return;
+      }
+      $('caja-sector-nuevo').hidden = true;
       componerPunto();
       sugerirCodigo().then(function (c) { $('f-muestra').value = c; });
-      sugerirPunto().then(function (n) { if (!$('f-punto-num').value) { $('f-punto-num').value = n; componerPunto(); } });
+      sugerirPunto().then(function (n) { if (n && !$('f-punto-num').value) { $('f-punto-num').value = n; componerPunto(); } });
+    });
+
+    $('btn-sector-crear').addEventListener('click', crearSector);
+    $('f-sector-nuevo').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); crearSector(); }
+    });
+    $('btn-sector-cancelar').addEventListener('click', function () {
+      $('caja-sector-nuevo').hidden = true;
+      pintarSectores(listaSectores()[0] || '');
+      componerPunto();
+    });
+
+    $('f-tipo').addEventListener('change', function () {
+      if (this.value === '__nuevo__') {
+        $('caja-tipo-nuevo').hidden = false;
+        $('f-tipo-nuevo').value = '';
+        $('f-tipo-nuevo').focus();
+        return;
+      }
+      $('caja-tipo-nuevo').hidden = true;
+      guardarBorrador();
+    });
+
+    $('btn-tipo-crear').addEventListener('click', crearTipo);
+    $('f-tipo-nuevo').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); crearTipo(); }
+    });
+    $('btn-tipo-cancelar').addEventListener('click', function () {
+      $('caja-tipo-nuevo').hidden = true;
+      pintarTipos(ajustes.tipoMuestra || C.tipoMuestra[0]);
     });
     $('f-punto-num').addEventListener('input', componerPunto);
     $('f-fecha').addEventListener('change', function () {
@@ -554,6 +696,13 @@ GQ.form = (function () {
     fechaTexto: fechaTexto,
     setAjustes: function (a) { ajustes = a; },
     estaEditando: function () { return !!(estado && estado.editando); },
+    listaSectores: listaSectores,
+    listaTipos: listaTipos,
+    repintarCatalogos: function () {
+      pintarSectores($('f-sector').value === '__nuevo__' ? '' : $('f-sector').value);
+      pintarTipos($('f-tipo').value === '__nuevo__' ? '' : $('f-tipo').value);
+      componerPunto();
+    },
     actualizarSugerencias: function () {
       return GQ.db.allSamples().then(function (rows) {
         ultimaGuardada = rows[0] || null;

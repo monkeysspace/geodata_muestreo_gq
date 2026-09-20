@@ -210,7 +210,7 @@ GQ.list = (function () {
     Object.keys(proyectos).sort().forEach(function (p) {
       fp.insertAdjacentHTML('beforeend', '<option>' + p + '</option>');
     });
-    fs.innerHTML = '<option value="">Todos los sectores</option>';
+    fs.innerHTML = '<option value="">Todos los prefijos</option>';
     Object.keys(sectores).sort().forEach(function (p) {
       fs.insertAdjacentHTML('beforeend', '<option>' + p + '</option>');
     });

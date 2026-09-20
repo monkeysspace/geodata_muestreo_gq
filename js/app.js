@@ -3,14 +3,16 @@ window.GQ = window.GQ || {};
 
 GQ.app = (function () {
   const $ = function (id) { return document.getElementById(id); };
-  const VERSION = '1.0.0';
+  const VERSION = '1.1.0';
   let ajustes = {};
   let vistaActual = 'form';
   let timerAviso = null;
 
   const POR_OMISION = {
     proyecto: '',
-    sector: 'CR',
+    sector: '',
+    sectores: [],
+    tiposExtra: [],
     operador: '',
     prefijo: 'GQ',
     tipoMuestra: GQ.catalogs.tipoMuestra[0],
@@ -86,24 +88,78 @@ GQ.app = (function () {
     $('a-precision').value = ajustes.precisionAviso || 15;
     $('a-calidad').value = String(ajustes.maxLado || 1600);
 
+    pintarCatalogos();
+    $('version').textContent = VERSION;
+  }
+
+  /* Repinta solo las listas de prefijos y tipos. Se llama al agregar o
+     quitar una entrada, y no toca el resto del formulario para no borrar
+     lo que el usuario esté escribiendo. */
+  function pintarCatalogos() {
+    const sectores = ajustes.sectores || [];
     const sel = $('a-sector');
+    const selPrevio = sel.value;
     sel.innerHTML = '';
-    GQ.catalogs.sectores.forEach(function (s) {
+    if (!sectores.length) {
+      sel.insertAdjacentHTML('beforeend', '<option value="">— todavía no creas ninguno —</option>');
+    }
+    sectores.forEach(function (s) {
       const o = document.createElement('option');
       o.value = s; o.textContent = s;
-      if (s === ajustes.sector) o.selected = true;
       sel.appendChild(o);
     });
+    sel.value = sectores.indexOf(selPrevio) >= 0 ? selPrevio : (ajustes.sector || '');
 
     const tipo = $('a-tipo');
+    const tipoPrevio = tipo.value;
+    const tipos = GQ.form.listaTipos();
     tipo.innerHTML = '';
-    GQ.catalogs.tipoMuestra.forEach(function (s) {
+    tipos.forEach(function (s) {
       const o = document.createElement('option');
       o.value = s; o.textContent = s;
-      if (s === ajustes.tipoMuestra) o.selected = true;
       tipo.appendChild(o);
     });
-    $('version').textContent = VERSION;
+    tipo.value = tipos.indexOf(tipoPrevio) >= 0 ? tipoPrevio : (ajustes.tipoMuestra || tipos[0]);
+
+    pintarCatalogo('a-sectores-lista', sectores, 'sectores',
+                   'No has creado ningún prefijo todavía.');
+    pintarCatalogo('a-tipos-lista', ajustes.tiposExtra || [], 'tiposExtra',
+                   'Solo están los cuatro tipos del compilado.');
+  }
+
+  /* Chips de un catálogo propio; tocarlos lo elimina. */
+  function pintarCatalogo(contenedorId, valores, clave, vacio) {
+    const cont = $(contenedorId);
+    cont.innerHTML = '';
+    if (!valores.length) {
+      cont.innerHTML = '<span class="ayuda" style="text-transform:none">' + vacio + '</span>';
+      return;
+    }
+    valores.forEach(function (v) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'chip';
+      b.textContent = v + '  ✕';
+      b.addEventListener('click', function () {
+        if (!confirm('¿Quitar «' + v + '» de la lista?\n' +
+                     'Las muestras ya guardadas con ese valor no se modifican.')) return;
+        ajustes[clave] = (ajustes[clave] || []).filter(function (x) { return x !== v; });
+        if (clave === 'sectores' && ajustes.sector === v) ajustes.sector = ajustes.sectores[0] || '';
+        if (clave === 'tiposExtra' && ajustes.tipoMuestra === v) {
+          ajustes.tipoMuestra = GQ.catalogs.tipoMuestra[0];
+        }
+        Promise.all([
+          GQ.db.setSetting(clave, ajustes[clave]),
+          GQ.db.setSetting('sector', ajustes.sector),
+          GQ.db.setSetting('tipoMuestra', ajustes.tipoMuestra)
+        ]).then(function () {
+          GQ.form.setAjustes(ajustes);
+          GQ.form.repintarCatalogos();
+          pintarCatalogos();
+          aviso('«' + v + '» eliminado de la lista');
+        });
+      });
+      cont.appendChild(b);
+    });
   }
 
   function guardarAjustes() {
@@ -146,6 +202,22 @@ GQ.app = (function () {
     Promise.all([GQ.db.allSamples(), GQ.db.allPhotos()]).then(function (r) {
       let bytes = 0;
       r[1].forEach(function (f) { bytes += f.bytes || 0; });
+
+      /* Proyectos presentes en los datos, para exportar uno solo. */
+      const sel = $('exp-proyecto');
+      const previo = sel.value;
+      const proyectos = {};
+      r[0].forEach(function (s) { if (s.proyecto) proyectos[s.proyecto] = (proyectos[s.proyecto] || 0) + 1; });
+      sel.innerHTML = '<option value="">Todas las muestras (' + r[0].length + ')</option>';
+      Object.keys(proyectos).sort().forEach(function (p) {
+        sel.insertAdjacentHTML('beforeend',
+          '<option value="' + p.replace(/"/g, '&quot;') + '">' + p + ' (' + proyectos[p] + ')</option>');
+      });
+      sel.value = proyectos[previo] ? previo : '';
+      $('exp-conteo').textContent = sel.value
+        ? 'Se exportarán las ' + proyectos[sel.value] + ' muestras de ' + sel.value + '.'
+        : 'Se exportarán las ' + r[0].length + ' muestras guardadas.';
+
       $('resumen-exportar').innerHTML =
         '<div class="tarjeta-dato"><div class="valor">' + r[0].length + '</div><div class="rotulo">muestras</div></div>' +
         '<div class="tarjeta-dato"><div class="valor">' + r[1].length + '</div><div class="rotulo">fotos</div></div>' +
@@ -187,6 +259,41 @@ GQ.app = (function () {
 
       $('btn-tema').addEventListener('click', rotarTema);
       $('btn-guardar-ajustes').addEventListener('click', guardarAjustes);
+
+      $('a-sector-add').addEventListener('click', function () {
+        const v = ($('a-sector-nuevo').value || '').trim().toUpperCase();
+        if (!v) { aviso('Escribe el prefijo'); return; }
+        if (!/^[A-ZÑ0-9]{1,10}$/.test(v)) {
+          aviso('Usa solo letras y números, sin espacios ni guiones'); return;
+        }
+        if ((ajustes.sectores || []).indexOf(v) >= 0) { aviso('Ya está en la lista'); return; }
+        ajustes.sectores = (ajustes.sectores || []).concat([v]);
+        if (!ajustes.sector) ajustes.sector = v;
+        Promise.all([
+          GQ.db.setSetting('sectores', ajustes.sectores),
+          GQ.db.setSetting('sector', ajustes.sector)
+        ]).then(function () {
+          $('a-sector-nuevo').value = '';
+          GQ.form.setAjustes(ajustes);
+          GQ.form.repintarCatalogos();
+          pintarCatalogos();
+          aviso('Prefijo ' + v + ' creado');
+        });
+      });
+
+      $('a-tipo-add').addEventListener('click', function () {
+        const v = ($('a-tipo-nuevo').value || '').trim();
+        if (!v) { aviso('Escribe el tipo de muestra'); return; }
+        if (GQ.form.listaTipos().indexOf(v) >= 0) { aviso('Ya está en la lista'); return; }
+        ajustes.tiposExtra = (ajustes.tiposExtra || []).concat([v]);
+        GQ.db.setSetting('tiposExtra', ajustes.tiposExtra).then(function () {
+          $('a-tipo-nuevo').value = '';
+          GQ.form.setAjustes(ajustes);
+          GQ.form.repintarCatalogos();
+          pintarCatalogos();
+          aviso('Tipo agregado');
+        });
+      });
       $('btn-borrar-todo').addEventListener('click', function () {
         const r = prompt('Esto borra TODAS las muestras y fotos de este teléfono.\n' +
                          'Escribe BORRAR para confirmar:');
@@ -198,6 +305,7 @@ GQ.app = (function () {
         });
       });
 
+      $('exp-proyecto').addEventListener('change', pintarResumenExport);
       $('btn-xlsx').addEventListener('click', GQ.exportar.aExcel);
       $('btn-csv').addEventListener('click', GQ.exportar.aCSV);
       $('btn-zip').addEventListener('click', GQ.exportar.aZIP);
@@ -243,6 +351,7 @@ GQ.app = (function () {
 
   return {
     ir: ir, aviso: aviso, refrescar: refrescar,
+    refrescarCatalogos: function () { if ($('a-sectores-lista')) pintarCatalogos(); },
     ajustes: function () { return ajustes; },
     VERSION: VERSION
   };

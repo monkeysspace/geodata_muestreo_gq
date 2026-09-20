@@ -17,6 +17,23 @@ GQ.exportar = (function () {
     }, 1500);
   }
 
+  /* Lee los dos selectores de la pantalla Exportar. */
+  function opcionesExport() {
+    const sp = document.getElementById('exp-proyecto');
+    const sf = document.getElementById('exp-completo');
+    return {
+      proyecto: sp ? sp.value : '',
+      completo: sf ? sf.value === 'completo' : false
+    };
+  }
+
+  /* Trozo de nombre de archivo con el proyecto, si se filtró por uno. */
+  function etiquetaProyecto(proyecto) {
+    if (!proyecto) return '';
+    return '_' + proyecto.replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñ0-9]+/g, '_')
+                         .replace(/^_+|_+$/g, '');
+  }
+
   function marca() {
     const d = new Date();
     return d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') +
@@ -50,13 +67,19 @@ GQ.exportar = (function () {
 
   /* ---------- Excel ---------- */
 
-  function hojas(rows, conteoFotos, nombresFotos) {
+  function hojas(rows, conteoFotos, nombresFotos, completo) {
+    /* Formato completo: las columnas S a CD del compilado quedan presentes
+       y vacías, a la espera de los resultados del laboratorio. */
+    const quimica = completo ? C.columnasQuimica : [];
     const muestras = {
       name: 'Muestras',
-      headers: C.columnas.map(function (c) { return c.header; }),
-      widths: [17, 15, 11, 13, 14, 14, 3, 17, 16, 26, 16, 17, 20, 3, 44, 18, 34, 40],
+      headers: C.columnas.map(function (c) { return c.header; })
+                         .concat(quimica),
+      widths: [17, 15, 11, 13, 14, 14, 3, 17, 16, 26, 16, 17, 20, 3, 44, 18, 34, 40]
+                .concat(quimica.map(function () { return 10; })),
       rows: rows.map(function (s) {
-        return C.columnas.map(function (c) { return valorCelda(s, c); });
+        return C.columnas.map(function (c) { return valorCelda(s, c); })
+                         .concat(quimica.map(function () { return null; }));
       })
     };
     const meta = {
@@ -81,8 +104,12 @@ GQ.exportar = (function () {
   }
 
   function datosCompletos() {
+    const op = opcionesExport();
     return Promise.all([GQ.db.allSamples(), GQ.db.allPhotos()]).then(function (r) {
-      const rows = ordenarParaExportar(r[0]);
+      let rows = ordenarParaExportar(r[0]);
+      if (op.proyecto) {
+        rows = rows.filter(function (s) { return s.proyecto === op.proyecto; });
+      }
       const fotos = r[1];
       const porMuestra = {};
       fotos.slice().sort(function (a, b) { return a.createdAt - b.createdAt; })
@@ -95,16 +122,18 @@ GQ.exportar = (function () {
         conteo[s.id] = fs.length;
         nombres[s.id] = fs.map(function (f, i) { return GQ.photos.nombreArchivo(s, i); });
       });
-      return { rows: rows, porMuestra: porMuestra, conteo: conteo, nombres: nombres };
+      return { rows: rows, porMuestra: porMuestra, conteo: conteo, nombres: nombres,
+               proyecto: op.proyecto, completo: op.completo };
     });
   }
 
   function aExcel() {
     return datosCompletos().then(function (d) {
       if (!d.rows.length) { GQ.app.aviso('No hay muestras que exportar'); return; }
-      const blob = GQ.xlsx.build(hojas(d.rows, d.conteo, d.nombres));
-      descargar(blob, 'Muestreo_GQ_' + marca() + '.xlsx');
-      GQ.app.aviso('Excel generado (' + d.rows.length + ' muestras)');
+      const blob = GQ.xlsx.build(hojas(d.rows, d.conteo, d.nombres, d.completo));
+      descargar(blob, 'Muestreo_GQ' + etiquetaProyecto(d.proyecto) + '_' + marca() + '.xlsx');
+      GQ.app.aviso('Excel generado: ' + d.rows.length + ' muestras' +
+                   (d.proyecto ? ' de ' + d.proyecto : ''));
     });
   }
 
@@ -139,7 +168,7 @@ GQ.exportar = (function () {
       if (!d.rows.length) { GQ.app.aviso('No hay muestras que exportar'); return; }
       const blob = new Blob([csvTexto(d.rows, d.conteo, d.nombres)],
                             { type: 'text/csv;charset=utf-8' });
-      descargar(blob, 'Muestreo_GQ_' + marca() + '.csv');
+      descargar(blob, 'Muestreo_GQ' + etiquetaProyecto(d.proyecto) + '_' + marca() + '.csv');
       GQ.app.aviso('CSV generado');
     });
   }
@@ -151,14 +180,15 @@ GQ.exportar = (function () {
     return datosCompletos().then(function (d) {
       if (!d.rows.length) { GQ.app.aviso('No hay muestras que exportar'); return; }
       const archivos = [];
-      const xlsxBlob = GQ.xlsx.build(hojas(d.rows, d.conteo, d.nombres));
+      const base = 'Muestreo_GQ' + etiquetaProyecto(d.proyecto) + '_' + marca();
+      const xlsxBlob = GQ.xlsx.build(hojas(d.rows, d.conteo, d.nombres, d.completo));
 
       return xlsxBlob.arrayBuffer().then(function (ab) {
-        archivos.push({ name: 'Muestreo_GQ_' + marca() + '.xlsx', data: new Uint8Array(ab) });
-        archivos.push({ name: 'Muestreo_GQ_' + marca() + '.csv',
+        archivos.push({ name: base + '.xlsx', data: new Uint8Array(ab) });
+        archivos.push({ name: base + '.csv',
                         data: csvTexto(d.rows, d.conteo, d.nombres) });
         archivos.push({ name: 'puntos.kml', data: kmlTexto(d.rows) });
-        archivos.push({ name: 'LEEME.txt', data: leeme(d.rows.length) });
+        archivos.push({ name: 'LEEME.txt', data: leeme(d.rows.length, d.proyecto, d.completo) });
 
         let cadena = Promise.resolve();
         d.rows.forEach(function (s) {
@@ -175,17 +205,20 @@ GQ.exportar = (function () {
         });
         return cadena;
       }).then(function () {
-        descargar(GQ.zip.build(archivos), 'Muestreo_GQ_' + marca() + '.zip');
-        GQ.app.aviso('Paquete listo');
+        descargar(GQ.zip.build(archivos), base + '.zip');
+        GQ.app.aviso('Paquete listo: ' + d.rows.length + ' muestras');
       });
     });
   }
 
-  function leeme(n) {
+  function leeme(n, proyecto, completo) {
     return 'Geodata_edición_muestreo_GQ\r\n' +
       '===========================\r\n\r\n' +
       'Exportado el ' + new Date().toLocaleString('es-CL') + '\r\n' +
-      'Muestras incluidas: ' + n + '\r\n\r\n' +
+      'Proyecto: ' + (proyecto || 'todos') + '\r\n' +
+      'Muestras incluidas: ' + n + '\r\n' +
+      'Formato: ' + (completo ? 'compilado completo (A-CD, química vacía)'
+                              : 'columnas de terreno (A-R)') + '\r\n\r\n' +
       'Contenido del paquete\r\n' +
       '  .xlsx      Hoja "Muestras" con las columnas A-R del compilado\r\n' +
       '             (Proyecto ... OTRAS OBSERVACIONES) y hoja "Metadatos"\r\n' +
@@ -237,11 +270,11 @@ GQ.exportar = (function () {
   }
 
   function aKML() {
-    return GQ.db.allSamples().then(function (rows) {
-      if (!rows.length) { GQ.app.aviso('No hay muestras que exportar'); return; }
-      descargar(new Blob([kmlTexto(ordenarParaExportar(rows))],
+    return datosCompletos().then(function (d) {
+      if (!d.rows.length) { GQ.app.aviso('No hay muestras que exportar'); return; }
+      descargar(new Blob([kmlTexto(d.rows)],
                 { type: 'application/vnd.google-earth.kml+xml' }),
-                'Muestreo_GQ_' + marca() + '.kml');
+                'Muestreo_GQ' + etiquetaProyecto(d.proyecto) + '_' + marca() + '.kml');
       GQ.app.aviso('KML generado');
     });
   }
